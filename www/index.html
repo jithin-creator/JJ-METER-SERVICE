@@ -1,0 +1,351 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#d71920">
+<title>JJ METER SERVICE</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f2f2f2;color:#222;font-family:Arial,sans-serif}
+header{background:#d71920;color:white;text-align:center;padding:24px 10px}
+.logo{width:95px;height:95px;background:white;border-radius:22px;padding:8px}
+header h1{font-size:25px;margin:10px 0}
+header p{letter-spacing:3px;margin:5px}
+main{max-width:650px;margin:auto;padding:12px}
+.card{background:white;border-radius:15px;padding:17px;margin-bottom:15px;box-shadow:0 3px 12px #0001}
+h3{color:#d71920;margin-top:0}
+label{display:block;margin-top:12px}
+input,select{width:100%;padding:14px;border:1px solid #ccc;border-radius:9px;font-size:16px;margin-top:6px}
+button{background:#d71920;color:white;border:0;border-radius:8px;padding:13px;font-weight:bold;font-size:14px;margin-top:9px;cursor:pointer}
+button.dark{background:#333}
+button.white{background:white;color:#d71920;border:1px solid #d71920}
+button.red{background:#990000}
+.full{width:100%}
+.record{border:1px solid #ddd;padding:13px;border-radius:10px;margin:12px 0}
+.record p{line-height:1.7;white-space:pre-line}
+.status{color:#b40000;font-weight:bold}
+.actions{display:flex;flex-wrap:wrap;gap:5px}
+.actions button{flex:1}
+#reader{width:100%;margin-top:15px}
+#qrcode{display:flex;justify-content:center;margin:15px}
+small{color:#777}
+footer{text-align:center;padding:20px;color:#777}
+</style>
+</head>
+
+<body>
+<header>
+<svg class="logo" viewBox="0 0 100 100">
+<rect width="100" height="100" rx="15" fill="white"/>
+<path d="M15 60 A35 35 0 0 1 85 60" fill="none" stroke="#d71920" stroke-width="7"/>
+<path d="M50 55 L70 32" stroke="#222" stroke-width="5" stroke-linecap="round"/>
+<circle cx="50" cy="55" r="6" fill="#d71920"/>
+<rect x="15" y="67" width="70" height="18" rx="5" fill="#d71920"/>
+<text x="50" y="80" font-size="12" fill="white" text-anchor="middle" font-weight="bold">JJ METER</text>
+</svg>
+<h1>JJ METER SERVICE</h1>
+<p>DIGITAL METER MANAGEMENT</p>
+</header>
+
+<main>
+
+<section class="card">
+<h3>Customer / Meter Entry</h3>
+
+<label>Customer Name</label>
+<input id="customer" placeholder="Enter customer name">
+
+<label>Mobile Number</label>
+<input id="mobile" type="tel" placeholder="Enter mobile number">
+
+<label>Meter Name</label>
+<input id="meter" placeholder="Example: Pulsar 150">
+
+<label>Status Condition</label>
+<select id="status">
+<option>Received</option>
+<option>Repair</option>
+<option>Transfer</option>
+</select>
+
+<button class="full" onclick="saveData()">SAVE METER DETAILS</button>
+<button class="full white" onclick="clearForm()">CLEAR FORM</button>
+</section>
+
+<section class="card">
+<h3>Search Records</h3>
+<input id="search" placeholder="Search customer / mobile / meter" oninput="showRecords()">
+<div id="records"></div>
+</section>
+
+<section class="card">
+<h3>QR Code Scanner</h3>
+<button onclick="startScan()">OPEN CAMERA / SCAN QR</button>
+<button class="dark" onclick="stopScan()">STOP CAMERA</button>
+<div id="reader"></div>
+<p id="scanResult"></p>
+</section>
+
+<section class="card">
+<h3>Backup & Restore</h3>
+<button class="full" onclick="backupData()">DOWNLOAD BACKUP FILE</button>
+<button class="full dark" onclick="document.getElementById('restore').click()">RESTORE BACKUP</button>
+<input type="file" id="restore" accept=".json" hidden onchange="restoreData(event)">
+<small>Backup file will be downloaded to your phone.</small>
+</section>
+
+</main>
+
+<footer>JJ METER SERVICE © 2026</footer>
+
+<script>
+const KEY="JJ_METER_SERVICE_DATA";
+let data=JSON.parse(localStorage.getItem(KEY)||"[]");
+let editing=null;
+let scanner=null;
+
+function save(){
+ localStorage.setItem(KEY,JSON.stringify(data));
+}
+
+function clearForm(){
+ customer.value="";
+ mobile.value="";
+ meter.value="";
+ status.value="Received";
+ editing=null;
+ document.querySelector(".card button").textContent="SAVE METER DETAILS";
+}
+
+function saveData(){
+ let c=customer.value.trim();
+ let m=mobile.value.trim();
+ let v=meter.value.trim();
+ let s=status.value;
+
+ if(!c||!m||!v){
+  alert("Please enter all details");
+  return;
+ }
+
+ if(editing){
+  let item=data.find(x=>x.id===editing);
+  if(item) Object.assign(item,{customer:c,mobile:m,meter:v,status:s});
+ }else{
+  data.unshift({
+   id:Date.now().toString(),
+   customer:c,
+   mobile:m,
+   meter:v,
+   status:s,
+   date:new Date().toLocaleString()
+  });
+ }
+
+ save();
+ clearForm();
+ showRecords();
+ alert("Meter details saved successfully!");
+}
+
+function showRecords(){
+ let q=search.value.toLowerCase();
+ records.innerHTML="";
+
+ data.filter(x=>
+  [x.customer,x.mobile,x.meter,x.status].join(" ").toLowerCase().includes(q)
+ ).forEach(x=>{
+  let div=document.createElement("div");
+  div.className="record";
+
+  let info=document.createElement("p");
+  info.textContent=
+   "Customer: "+x.customer+
+   "\nMobile: "+x.mobile+
+   "\nMeter: "+x.meter+
+   "\nStatus: "+x.status+
+   "\nDate: "+(x.date||"");
+
+  let actions=document.createElement("div");
+  actions.className="actions";
+
+  actions.append(
+   makeButton("EDIT",()=>editData(x.id),"dark"),
+   makeButton("QR / PRINT",()=>printQR(x.id),""),
+   makeButton("WHATSAPP",()=>whatsapp(x.id),"dark"),
+   makeButton("DELETE",()=>deleteData(x.id),"red")
+  );
+
+  div.append(info,actions);
+  records.appendChild(div);
+ });
+
+ if(!records.children.length)
+  records.textContent="No records found.";
+}
+
+function makeButton(name,fn,cls){
+ let b=document.createElement("button");
+ b.textContent=name;
+ b.className=cls;
+ b.onclick=fn;
+ return b;
+}
+
+function editData(id){
+ let x=data.find(a=>a.id===id);
+ if(!x)return;
+ customer.value=x.customer;
+ mobile.value=x.mobile;
+ meter.value=x.meter;
+ status.value=x.status;
+ editing=id;
+ window.scrollTo(0,0);
+}
+
+function deleteData(id){
+ if(confirm("Delete this record?")){
+  data=data.filter(x=>x.id!==id);
+  save();
+  showRecords();
+ }
+}
+
+function whatsapp(id){
+ let x=data.find(a=>a.id===id);
+ if(!x)return;
+
+ let msg="JJ METER SERVICE\n"+
+ "Customer: "+x.customer+"\n"+
+ "Mobile: "+x.mobile+"\n"+
+ "Meter: "+x.meter+"\n"+
+ "Status: "+x.status+"\n"+
+ "Date: "+(x.date||"");
+
+ window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
+}
+
+function printQR(id){
+ let x=data.find(a=>a.id===id);
+ if(!x)return;
+
+ let w=window.open("","_blank");
+ if(!w){
+  alert("Allow pop-ups to print QR");
+  return;
+ }
+
+ w.document.write(`
+ <!DOCTYPE html>
+ <html><head><title>JJ Meter QR</title>
+ <style>
+ body{text-align:center;font-family:Arial;padding:20px}
+ h2{color:#d71920}
+ </style></head>
+ <body>
+ <h2>JJ METER SERVICE</h2>
+ <p>${escapeText(x.customer)}</p>
+ <p>${escapeText(x.meter)}</p>
+ <p>${escapeText(x.mobile)}</p>
+ <div id="qr"></div>
+ <p>${escapeText(x.status)}</p>
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+ <script>
+ new QRCode(document.getElementById("qr"),{
+ text:${JSON.stringify(JSON.stringify(x))},
+ width:180,height:180
+ });
+ setTimeout(()=>window.print(),1000);
+ <\/script>
+ </body></html>`);
+ w.document.close();
+}
+
+function escapeText(s){
+ return String(s).replace(/[&<>"']/g,c=>({
+ "&":"&amp;","<":"&lt;",">":"&gt;",
+ '"':"&quot;","'":"&#39;"
+ }[c]));
+}
+
+async function startScan(){
+ if(!window.Html5Qrcode){
+  alert("QR scanner needs internet connection");
+  return;
+ }
+ try{
+  scanner=new Html5Qrcode("reader");
+  await scanner.start(
+   {facingMode:"environment"},
+   {fps:10,qrbox:230},
+   decoded=>{
+    scanResult.textContent="Scanned: "+decoded;
+    try{
+     let obj=JSON.parse(decoded);
+     let found=data.find(x=>x.id===obj.id);
+     if(found){
+      search.value=found.customer;
+      showRecords();
+     }
+    }catch(e){}
+    stopScan();
+   },
+   ()=>{}
+  );
+ }catch(e){
+  alert("Camera permission required. Please allow camera access.");
+ }
+}
+
+async function stopScan(){
+ if(scanner){
+  try{
+   if(scanner.isScanning) await scanner.stop();
+   await scanner.clear();
+  }catch(e){}
+  scanner=null;
+ }
+}
+
+function backupData(){
+ let blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+ let url=URL.createObjectURL(blob);
+ let a=document.createElement("a");
+ a.href=url;
+ a.download="JJ_METER_SERVICE_BACKUP.json";
+ a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+function restoreData(event){
+ let file=event.target.files[0];
+ if(!file)return;
+ let reader=new FileReader();
+
+ reader.onload=()=>{
+  try{
+   let d=JSON.parse(reader.result);
+   if(!Array.isArray(d))throw Error();
+   if(!confirm("Replace existing records with this backup?"))return;
+   data=d;
+   save();
+   showRecords();
+   alert("Backup restored");
+  }catch(e){
+   alert("Invalid backup file");
+  }
+  event.target.value="";
+ };
+ reader.readAsText(file);
+}
+
+showRecords();
+</script>
+</body>
+</html>
